@@ -39,6 +39,8 @@ static void PutEvent(int Cmd)
 
 BOOL CollectEvents(void)
 {
+	FILE *log = fopen("incsrch.log", "at");
+	fputs("incsrch: eneter READINPUT loop\n", log);
 Loop:
 	while (!bTermEvent && nEvents != PREVIEW_EVENTS && WaitInput(FALSE)
 			&& apiEditorControl(ECTL_READINPUT, &Event)) {
@@ -55,14 +57,18 @@ Loop:
 					goto Quit;
 				continue;
 			case KEY_EVENT:
-				if (!Event.Event.KeyEvent.bKeyDown)
-					continue;
-				else if (Event.Event.KeyEvent.wVirtualKeyCode == VK_MENU) {
+				if (!Event.Event.KeyEvent.bKeyDown) {
+					fputs("Incsrch: no key is down\n", log);
+					//continue;
+				} /*else*/ if (Event.Event.KeyEvent.wVirtualKeyCode == VK_MENU) {
 					aEvents[nEvents++].Flags = KC_CLEARMSG;
+					fputs("Incsrch: VK_MENU key pressed\n", log);
 					continue;
 				} else if (Event.Event.KeyEvent.dwControlKeyState & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) {
+					fputs("Incsrch: alt key pressed\n", log);
 					goto Quit;
-				} else
+				} else {
+					fprintf(log, "Incsrch: 0x%x key pressed\n", Event.Event.KeyEvent.wVirtualKeyCode);
 					switch (Event.Event.KeyEvent.wVirtualKeyCode) {
 						case VK_F1:
 							aEvents[nEvents++].Flags = KC_HELP;
@@ -80,6 +86,7 @@ Loop:
 							PutEvent(KC_BACK);
 							continue;
 						case VK_RETURN:
+							fputs("Incsrch: VK_RETURN pressed\n", log);
 							if (Event.Event.KeyEvent.dwControlKeyState
 									& (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED)) {
 								PutEvent((Event.Event.KeyEvent.dwControlKeyState & SHIFT_PRESSED)
@@ -101,16 +108,22 @@ Loop:
 									& (LEFT_CTRL_PRESSED | RIGHT_CTRL_PRESSED))
 								goto Paste;
 						default:
+							if (Event.Event.KeyEvent.bKeyDown)
 							if ((Event.Event.KeyEvent.dwControlKeyState
 										& (ENHANCED_KEY | LEFT_ALT_PRESSED | LEFT_CTRL_PRESSED
 												| RIGHT_ALT_PRESSED | RIGHT_CTRL_PRESSED))
 									|| ((unsigned)Event.Event.KeyEvent.uChar.AsciiChar < 32
-											&& Event.Event.KeyEvent.uChar.AsciiChar != '\t'))
+											&& Event.Event.KeyEvent.uChar.AsciiChar != '\t')) {
+								fputs("incsrch: modifier pressed or unknown character\n", log);
 								goto Quit;
+							}
+							fputs("incsrch: putback character\n", log);
 							PutEvent(KC_CHAR);
 					}
+				}
 				continue;
 			default:
+				fputs("incsrch: unknown EventType\n", log);
 				goto Quit;
 		}
 	}
@@ -122,6 +135,7 @@ Loop:
 			goto Loop;
 		}
 	}
+	fclose(log);
 	return nEvents || bTermEvent;
 }
 
